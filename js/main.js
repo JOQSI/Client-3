@@ -1,5 +1,6 @@
 Vue.component('task-card', {
-    props: ['card', 'currentColumnIndex', 'isFirstColumnLocked'], template: `
+    props: ['card', 'currentColumnIndex', 'isFirstColumnLocked', 'fromColumnIndex'],
+    template: `
     <div class="task-card">
        <h2>Задача: {{ card.title }}</h2>
         <h3>Дата создания:{{ card.createdDate }}</h3>
@@ -11,30 +12,46 @@ Vue.component('task-card', {
                 </li>
         </ul>
    <div>
-            <button  v-if="currentColumnIndex < 2" class="EDIT" @click="$emit('edit-card', card.id)">Редактировать</button>
+            <button v-if="currentColumnIndex !== 3" class="EDIT" @click="$emit('edit-card', card.id)">Редактировать</button>            <button v-if="currentColumnIndex === 0" class="DELITE" @click="$emit('delete-card', card.id)">Удалить</button>
             <button v-if="currentColumnIndex === 0" class="DELITE" @click="$emit('delete-card', card.id)">Удалить</button>
+            <button v-if="currentColumnIndex === 2" @click="returnToPrevious()">Переместить назад</button>
             <button v-if="currentColumnIndex !== 3" @click="moveToNext()">Переместить вперед</button>
-        </div>
+            <div v-if="card.shouldShowReturnReason && currentColumnIndex === 1">
+                <input type="text" v-model="returnReason" placeholder="Введите причину возврата" />
+                <button @click="submitReturnReason">Добавить причину возврата</button>
+            </div>
         <h3 v-if="card.finalMoved && card.lastUpdated" style="font-weight: bold">Выполнено: {{ card.lastUpdated }}</h3>
+         <p v-if="card.returnReason && currentColumnIndex !== 3" style="color: red;">Причина возврата: {{ card.returnReason }}</p>
+        <h4 v-if="currentColumnIndex !== 3">Последнее обновление: {{ card.lastUpdated }}</h4>
+        <h3 v-if="card.finalMoved && card.lastUpdated" style="font-weight: bold">
+            <span v-if="card.isOverdue" style="color: red;">(Просрочено)</span>
+            <span v-else style="color: green;">(Выполнено в срок)</span>
+        </h3>
     `, data() {
         return {
-            newTask: ''
+            newTask: '',
+            returnReason: ''
         };
-    }, methods: {
-        addTask() {
-            if (this.newTask) {
-                if (!this.card.tasks) {
-                    this.card.tasks = []; // Инициализация tasks, если он undefined
-                }
-                this.card.tasks.push({text: this.newTask, completed: false});
-                this.newTask = '';
-                this.saveTasks();
+    },
+        computed: {
+            shouldShowReturnReason() {
+                // Показываем поле ввода причины возврата только если карточка перемещается из колонки 2 в колонку 1
+                return  this.currentColumnIndex === 1;
             }
         },
+        methods: {
+            addTask() {
+                if (this.newTask) {
+                    if (!this.card.tasks) {
+                        this.card.tasks = []; // Инициализация tasks, если он undefined
+                    }
+                    this.card.tasks.push({text: this.newTask, completed: false});
+                    this.newTask = '';
+                    this.saveTasks();
+                }
+            },
 
-        moveToNext() {
-            this.$emit('move-to-next', this.card, this.currentColumnIndex);
-        }, removeTask(index) {
+        removeTask(index) {
             this.card.tasks.splice(index, 1); // Удаляем задачу по индексу
             this.saveTasks(); // Сохраняем изменения в localStorage
         }, saveTasks() {
@@ -54,17 +71,30 @@ Vue.component('task-card', {
 
             localStorage.setItem('cards', JSON.stringify(cards));
         },
+            moveToNext() {
+                this.card.lastUpdated = new Date().toLocaleString(); // Обновляем дату последнего изменения
+                this.$emit('move-to-next', this.card, this.currentColumnIndex);
+            },
+            returnToPrevious() {
+                this.card.lastUpdated = new Date().toLocaleString(); // Обновляем дату последнего изменения
+                this.$emit('move-to-previous', this.card, this.currentColumnIndex);
+            },
+            submitReturnReason() {
+                this.card.returnReason = this.returnReason; // Сохраняем причину возврата в карточке
+                this.returnReason = ''; // Сбрасываем поле ввода
+                this.saveTasks(); // Сохраняем изменения в localStorage
+            }
+    },
+        mounted() {
+            const cards = JSON.parse(localStorage.getItem('cards')) || [];
+            const savedCard = cards.find(c => c.id === this.card.id); // Ищем сохранённую карточку по id
 
-    }, mounted() {
-        const cards = JSON.parse(localStorage.getItem('cards')) || [];
-        const savedCard = cards.find(c => c.id === this.card.id); // Ищем сохранённую карточку по id
-
-        if (savedCard && savedCard.tasks) {
-            this.card.tasks = savedCard.tasks.map(task => ({...task})); // Глубокая копия задач
-        } else {
-            this.card.tasks = []; // Инициализация пустого массива задач
+            if (savedCard && savedCard.tasks) {
+                this.card.tasks = savedCard.tasks.map(task => ({...task})); // Глубокая копия задач
+            } else {
+                this.card.tasks = []; // Инициализация пустого массива задач
+            }
         }
-    }
 });
 
 Vue.component('column1', {
@@ -78,7 +108,6 @@ Vue.component('column1', {
             :currentColumnIndex="0"
             :isFirstColumnLocked="isFirstColumnLocked"
             @move-to-next="moveToNext"
-            @move-to-previous="moveToPrevious"
             @delete-card="$emit('delete-card', $event)"
             @edit-card="$emit('edit-card', $event)"
 
@@ -87,9 +116,7 @@ Vue.component('column1', {
     `, methods: {
         moveToNext(card, currentColumnIndex) {
             this.$emit('move-to-next', card, currentColumnIndex);
-        }, moveToPrevious(card, currentColumnIndex) {
-            this.$emit('move-to-previous', card, currentColumnIndex);
-        }
+        },
     }
 });
 
@@ -103,16 +130,13 @@ Vue.component('column2', {
             :card="card" 
             :currentColumnIndex="1"
             @move-to-next="moveToNext"
-            @move-to-previous="moveToPrevious"
             @edit-card="$emit('edit-card', $event)"
         ></task-card>
     </div>
     `, methods: {
         moveToNext(card, currentColumnIndex) {
             this.$emit('move-to-next', card, currentColumnIndex);
-        }, moveToPrevious(card, currentColumnIndex) {
-            this.$emit('move-to-previous', card, currentColumnIndex);
-        }
+        },
     }
 });
 
@@ -125,13 +149,16 @@ Vue.component('column3', {
             :key="index" 
             :card="card"
             :currentColumnIndex="2"
+            @edit-card="$emit('edit-card', $event)"
             @move-to-next="moveToNext"
+            @move-to-previous="returnToPrevious"
         ></task-card>
     </div>
-    `, methods: {
+    `,
+    methods: {
         moveToNext(card, currentColumnIndex) {
             this.$emit('move-to-next', card, currentColumnIndex);
-        }, moveToPrevious(card, currentColumnIndex) {
+        }, returnToPrevious(card, currentColumnIndex) {
             this.$emit('move-to-previous', card, currentColumnIndex);
         }
     }
@@ -148,11 +175,7 @@ Vue.component('column4', {
             :currentColumnIndex="3"
         ></task-card>
     </div>
-    `, methods: {
-        moveToPrevious(card, currentColumnIndex) {
-            this.$emit('move-to-previous', card, currentColumnIndex);
-        }
-    }
+    `
 });
 
 new Vue({
@@ -173,12 +196,14 @@ new Vue({
             isEditMode: false
 
         };
-    }, computed: {
+    },
+    computed: {
         filteredCards() {
             const query = this.searchQuery.toLowerCase();
             return this.cards.filter(card => card.title.toLowerCase().includes(query));
         }
-    }, methods: {
+    },
+    methods: {
         addCard() {
             if (this.newCardTitle.trim()) {
                 const card = {
@@ -202,7 +227,8 @@ new Vue({
             } else {
                 alert('Введите название карточки.');
             }
-        }, addNewTask() {
+        },
+        addNewTask() {
             if (this.newTaskText.trim()) {
                 if (this.isEditMode) {
                     this.editingCardTasks.push(this.newTaskText); // Добавляем новую задачу в массив редактируемой карточки
@@ -211,100 +237,120 @@ new Vue({
                 }
                 this.newTaskText = ''; // Сбрасываем поле ввода
             }
-        }, removeTask(index) {
+        },
+        removeTask(index) {
             if (this.isEditMode) {
                 this.editingCardTasks.splice(index, 1); // Удаляем задачу по индексу из редактируемого списка
             } else {
                 this.newTasks.splice(index, 1); // Удаляем задачу по индексу
             }
-        }, saveCards() {
+        },
+        saveCards() {
             localStorage.setItem('cards', JSON.stringify(this.cards));
-        }, deleteAllCards() {
+        },
+        deleteAllCards() {
             this.cards = [];
             localStorage.removeItem('cards');
-        }, deleteCard(cardId) {
+        },
+        deleteCard(cardId) {
             this.cards = this.cards.filter(card => card.id !== cardId);
             this.saveCards();
-        }, moveCardToNext(card, currentColumnIndex) {
+        },
+        moveCardToNext(card, currentColumnIndex) {
             const cardIndex = this.cards.indexOf(card);
 
             if (cardIndex !== -1 && currentColumnIndex < 3) {
-                // Устанавливаем флаги для карточки в зависимости от колонки
                 if (currentColumnIndex === 0) {
                     this.cards[cardIndex].moved = true; // Перемещаем в колонку "Задачи в работе"
                 } else if (currentColumnIndex === 1) {
                     this.cards[cardIndex].tested = true; // Перемещаем в колонку "Тестирование"
                 } else if (currentColumnIndex === 2) {
                     this.cards[cardIndex].finalMoved = true; // Перемещаем в колонку "Выполненные задачи"
-                    this.cards[cardIndex].lastUpdated = new Date().toLocaleString(); // Устанавливаем дату завершения
+                    this.cards[cardIndex].finalCompletion = new Date().toLocaleString(); // Устанавливаем дату завершения
                 }
+                // Проверяем срок дэдлайна
+                const deadlineDate = new Date(this.cards[cardIndex].deadline);
+                const currentDate = new Date();
+                this.cards[cardIndex].isOverdue = deadlineDate < currentDate; // Устанавливаем статус просроченности
                 this.saveCards();
             }
-        }, moveCardToPrevious(card, currentColumnIndex) {
+        },
+        moveCardToPrevious(card, currentColumnIndex) {
+            console.log('Перемещение карточки:', card);
+            console.log('Текущий индекс колонки:', currentColumnIndex);
+
             const cardIndex = this.cards.indexOf(card);
+            console.log('Индекс карточки в массиве:', cardIndex);
 
-            if (cardIndex !== -1 && card.tasks) {
-                const completedTasks = card.tasks.filter(task => task.completed).length;
-                const totalTasks = card.tasks.length;
+            if (cardIndex !== -1 && currentColumnIndex > 0) {
+                if (currentColumnIndex === 2) {
+                    this.cards[cardIndex].tested = false; // Перемещение обратно в колонку "Задачи в работе"
+                    console.log('Состояние карточки обновлено:', this.cards[cardIndex]);
+                    this.cards[cardIndex].shouldShowReturnReason = true;
+                } else if (currentColumnIndex === 1) {
+                    this.cards[cardIndex].moved = false; // Перемещение обратно в колонку "Запланированные задачи"
+                    console.log('Состояние карточки обновлено:', this.cards[cardIndex]);
+                }
 
-                if (completedTasks <= totalTasks / 2 && currentColumnIndex > 0) {
-                    card.moved = false;
-                    if (currentColumnIndex === 2) {
-                        card.finalMoved = false;
-                        card.lastUpdated = null;
-                    }
-                    this.saveCards();
+                this.saveCards(); // Сохраняем изменения
+                console.log('Карточки сохранены.');
+            } else {
+                console.log('Не удалось переместить карточку. Условия не выполнены.');
+            }
+        },
+        editCard(cardId) {
+            const cardToEdit = this.cards.find(card => card.id === cardId);
+            if (cardToEdit) {
+                this.editingCardId = cardToEdit.id;
+                this.editingCardTitle = cardToEdit.title;
+                this.editingCardDeadline = cardToEdit.deadline;
+                this.editingCardTasks = cardToEdit.tasks.map(task => task.text); // Загружаем существующие задачи
+                this.showModal = true;
+                this.isEditMode = true;
+            }
+        },
+        updateCard() {
+            const cardIndex = this.cards.findIndex(card => card.id === this.editingCardId);
+            if (cardIndex !== -1) {
+                // Обновляем детали карточки
+                this.cards[cardIndex].title = this.editingCardTitle;
+                this.cards[cardIndex].deadline = this.editingCardDeadline;
+                this.cards[cardIndex].tasks = this.editingCardTasks.map(task => ({text: task, completed: false})); // Обновляем задачи
+                this.saveCards();
+                this.resetEditingState();
+            }
+        },
+        resetEditingState() {
+            this.editingCardId = null;
+            this.editingCardTitle = '';
+            this.editingCardDeadline = '';
+            this.showModal = false;
+            this.isEditMode = false;
+        },
+        handleSubmit() {
+            if (this.isEditMode) {
+                if (this.validateEditCard()) {
+                    this.updateCard();
+                }
+            } else {
+                if (this.validateNewCard()) {
+                    this.addCard();
                 }
             }
-        }
-    }, editCard(cardId) {
-        const cardToEdit = this.cards.find(card => card.id === cardId);
-        if (cardToEdit) {
-            this.editingCardId = cardToEdit.id;
-            this.editingCardTitle = cardToEdit.title;
-            this.editingCardDeadline = cardToEdit.deadline;
-            this.editingCardTasks = cardToEdit.tasks.map(task => task.text); // Загружаем существующие задачи
-            this.showModal = true;
-            this.isEditMode = true;
-        }
-    }, updateCard() {
-        const cardIndex = this.cards.findIndex(card => card.id === this.editingCardId);
-        if (cardIndex !== -1) {
-            // Обновляем детали карточки
-            this.cards[cardIndex].title = this.editingCardTitle;
-            this.cards[cardIndex].deadline = this.editingCardDeadline;
-            this.cards[cardIndex].tasks = this.editingCardTasks.map(task => ({text: task, completed: false})); // Обновляем задачи
-            this.saveCards();
-            this.resetEditingState();
-        }
-    }, resetEditingState() {
-        this.editingCardId = null;
-        this.editingCardTitle = '';
-        this.editingCardDeadline = '';
-        this.showModal = false;
-        this.isEditMode = false;
-    }, handleSubmit() {
-        if (this.isEditMode) {
-            if (this.validateEditCard()) {
-                this.updateCard();
-            }
-        } else {
-            if (this.validateNewCard()) {
-                this.addCard();
-            }
-        }
-    }, validateEditCard() {
-        // Ваша логика валидации для редактирования карточки
-        return this.editingCardTitle && this.editingCardDeadline;
-    }, validateNewCard() {
-        // Ваша логика валидации для создания новой карточки
-        return this.newCardTitle && this.newCardDeadline;
-
-        mounted()
-        {
-            const savedCards = JSON.parse(localStorage.getItem('cards'));
-            if (savedCards) {
-                this.cards = savedCards;
+        },
+        validateEditCard() {
+            // Ваша логика валидации для редактирования карточки
+            return this.editingCardTitle && this.editingCardDeadline;
+        },
+        validateNewCard() {
+            // Ваша логика валидации для создания новой карточки
+            return this.newCardTitle && this.newCardDeadline;
+            mounted()
+            {
+                const savedCards = JSON.parse(localStorage.getItem('cards'));
+                if (savedCards) {
+                    this.cards = savedCards;
+                }
             }
         }
     }
@@ -382,20 +428,19 @@ new Vue({
                 :cards="filteredCards.filter(card => !card.moved)" 
                 :isFirstColumnLocked="isFirstColumnLocked" 
                 @move-to-next="moveCardToNext"
-                @move-to-previous="moveCardToPrevious"
                 @delete-card="deleteCard"
                 @edit-card="editCard"
             ></column1>
             <column2 
                 :cards="filteredCards.filter(card => card.moved && !card.tested)" 
                 @move-to-next="moveCardToNext"
-                @move-to-previous="moveCardToPrevious"
                 @edit-card="editCard"
             ></column2>
             <column3 
                 :cards="filteredCards.filter(card => card.tested && !card.finalMoved)" 
                 @move-to-next="moveCardToNext"
                 @move-to-previous="moveCardToPrevious"
+                @edit-card="editCard"
             ></column3>
             <column4 
                 :cards="filteredCards.filter(card => card.finalMoved)"
