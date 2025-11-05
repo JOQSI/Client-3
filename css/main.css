@@ -1,21 +1,25 @@
-*{
+* {
     margin: 0;
     padding: 0;
 }
+
 .app {
     font-family: Arial, sans-serif;
     margin: 20px;
     background-color: #D3D3D3;
 
 }
-.navmenu{
+
+.navmenu {
     display: flex;
     justify-content: center;
 }
-.navmenu input[type="text"]{
+
+.navmenu input[type="text"] {
     width: 170px;
 }
-button:not(DELITE){
+
+button:not(DELITE) {
     color: black;
     background-color: #98FB98;
     border: 2px solid #3CB371;
@@ -23,30 +27,46 @@ button:not(DELITE){
     padding: 10px;
     margin: 20px;
 }
-button:not(DELITE):hover{
+
+button:not(DELITE):hover {
     background-color: #32CD32;
     border: 2px solid #228B22;
 }
-button:not(DELITE):disabled{
+
+button:not(DELITE):disabled {
     background-color: gray;
     border: 2px solid dimgrey;
 }
-.DELITE{
+
+.DELITE {
     background-color: #FA8072;
     border: 2px solid #B22222;
     border-radius: 10px;
     padding: 10px;
     margin: 20px;
 }
-.DELITE:hover{
+
+.DELITE:hover {
     background-color: #CD5C5C;
     border: 2px solid #8B0000;
 }
-input{
+
+.EDIT {
+    background-color: #00BFFF;
+    border: 2px solid #1E90FF;
+}
+
+.EDIT:hover {
+    background-color: #6495ED;
+    border: 2px solid #4169E1;
+}
+
+input {
     padding: 5px;
     margin: 10px;
     border-radius: 5px;
 }
+
 .task-card {
     display: flex;
     flex-direction: column;
@@ -56,31 +76,38 @@ input{
     padding: 10px;
     margin: 20px;
 }
-.task-card  li{
+
+.task-card li {
     list-style-type: none;
 }
-.task-card  li p{
+
+.task-card li p {
 
 }
+
 .task-card input[type="text"] {
     margin-right: 10px;
 }
-.tables{
+
+.tables {
     display: flex;
     justify-content: space-between;
 }
-.column{
+
+.column {
 
     height: 50%;
     background-color: #696969;
     border-radius: 10px;
 }
-.column >h2{
+
+.column > h2 {
     display: flex;
     justify-content: center;
     color: white;
     padding-top: 20px;
 }
+
 .modal-mask {
     position: fixed;
     z-index: 9998;
@@ -93,11 +120,13 @@ input{
     align-items: center;
     justify-content: center;
 }
+
 .modal-wrapper {
     display: flex;
     align-items: center;
     justify-content: center;
 }
+
 .modal-container {
     width: 300px;
     background-color: white;
@@ -105,6 +134,7 @@ input{
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     overflow: hidden;
 }
+
 .modal-header {
     padding: 10px;
     border-bottom: 1px solid #eee;
@@ -112,18 +142,22 @@ input{
     justify-content: space-between;
     align-items: center;
 }
+
 .modal-body {
     padding: 20px;
 }
-.modal-body li{
+
+.modal-body li {
     list-style-type: none;
 }
+
 .modal-footer {
     padding: 10px;
     border-top: 1px solid #eee;
     display: flex;
     justify-content: flex-end;
 }
+
 .close {
     cursor: pointer;
     font-size: 20px;
